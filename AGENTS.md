@@ -53,7 +53,7 @@ Inspect the current Git status and the actual source files before changing them.
 - Treat prompt/model text as untrusted input. Validate every proposed operation and all final references before persistence.
 - Do not add fake AI responses, fake health checks, or buttons that pretend an unimplemented feature works. Keep recipes explicitly distinct from model-generated proposals.
 - Do not broaden credential scopes, switch publishing accounts, make a repository public, force-push, or overwrite unrelated remote history without explicit authorization. New repositories should be private when visibility is unspecified.
-- No open-source license is currently selected. Do not grant redistribution rights without the owner's instruction.
+- The project is [MIT licensed](LICENSE). Preserve copyright and permission notices, check third-party license compatibility, and do not change licensing or repository visibility without the owner's instruction.
 
 ## Required verification
 

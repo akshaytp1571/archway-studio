@@ -114,6 +114,8 @@ A commit-pinned [GitHub Actions template](docs/ci/github-actions.yml) is include
 
 The initial GitHub publication is **private**. Repository visibility does not change the application's deployment security.
 
-No open-source license has been selected for this project. Access is for authorized collaborators; do not assume redistribution rights. The owner should choose an explicit license before a public/open-source release. Third-party dependencies retain their own licenses.
+Archway source code and repository documentation are licensed under the [MIT License](LICENSE), copyright 2026 akshaytp1571 and Archway contributors. MIT permits use, modification, distribution, sublicensing, and commercial use, provided the copyright and permission notices are retained. The software is provided without warranty. Third-party dependencies retain their own licenses.
+
+Licensing and repository access are separate: the repository remains private until the owner chooses otherwise. This license does not grant access to private user architecture data or change its ownership.
 
 See [contributing](CONTRIBUTING.md), [security](SECURITY.md), and the [changelog](CHANGELOG.md).

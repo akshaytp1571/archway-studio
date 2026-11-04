@@ -4,6 +4,8 @@ Changes are recorded here when shipped. Planned work belongs in [the roadmap](do
 
 ## Unreleased
 
+- Adopt the MIT open-source license, add the SPDX package/lockfile metadata, and update contribution and coding-agent guidance. Repository visibility remains private.
+
 - Prevent quick-find from replacing an active/saving dialog; browser checks wait for creation dialogs to finish.
 - Normalize Git text line endings for reproducible Windows/Linux checkouts.
 

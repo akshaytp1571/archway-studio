@@ -13,7 +13,7 @@ This document distinguishes implemented behavior from proposed work. See [the ch
 - SVG/Mermaid are view exports, not full round-trip models. Current export routing is left-to-right oriented.
 - No source-code/cloud discovery, infrastructure deployment execution, live runtime telemetry, pricing/cost engine, or automated best-practice certification.
 - A configured provider is not a tested connection. Schema-valid model output is not necessarily a good design.
-- No public/open-source license has been selected; the initial repository is private.
+- The code and documentation are [MIT licensed](../LICENSE), but the repository remains private until the owner chooses public visibility.
 - A CI template is included but requires explicit workflow permission/activation before GitHub-hosted checks can run.
 
 ## Suggested sequence
