@@ -1,0 +1,246 @@
+{
+  "name": "Commerce platform",
+  "description": "A service-oriented storefront, from first click to checkout.",
+  "components": [
+    {
+      "id": "web-client",
+      "kind": "client",
+      "name": "Web storefront",
+      "description": "The customer-facing shopping experience. Browses products and places orders.",
+      "technology": "Next.js",
+      "owner": "Platform team",
+      "tags": ["public"],
+      "boundaryId": null,
+      "metadata": {}
+    },
+    {
+      "id": "api-gateway",
+      "kind": "gateway",
+      "name": "API gateway",
+      "description": "Routes authenticated requests to application services. Applies rate limits.",
+      "technology": "Kong",
+      "owner": "Platform team",
+      "tags": ["entrypoint"],
+      "boundaryId": "application",
+      "metadata": {}
+    },
+    {
+      "id": "catalog-service",
+      "kind": "service",
+      "name": "Catalog service",
+      "description": "Owns product discovery, inventory lookup, and catalog search.",
+      "technology": "Node.js",
+      "owner": "Platform team",
+      "tags": ["core"],
+      "boundaryId": "application",
+      "metadata": {}
+    },
+    {
+      "id": "order-service",
+      "kind": "service",
+      "name": "Order service",
+      "description": "Coordinates checkout, creates orders, and integrates with payments.",
+      "technology": "TypeScript",
+      "owner": "Platform team",
+      "tags": ["core"],
+      "boundaryId": "application",
+      "metadata": {}
+    },
+    {
+      "id": "identity-service",
+      "kind": "service",
+      "name": "Identity service",
+      "description": "Manages customer authentication, authorization, and session lifecycle.",
+      "technology": "Keycloak",
+      "owner": "Platform team",
+      "tags": ["security"],
+      "boundaryId": "application",
+      "metadata": {}
+    },
+    {
+      "id": "primary-database",
+      "kind": "database",
+      "name": "Commerce database",
+      "description": "Durable storage for products and orders. Schemas are owned by their services.",
+      "technology": "PostgreSQL",
+      "owner": "Platform team",
+      "tags": ["persistent"],
+      "boundaryId": "data",
+      "metadata": {}
+    },
+    {
+      "id": "session-store",
+      "kind": "database",
+      "name": "Session store",
+      "description": "Short-lived session and token state with time-based expiry.",
+      "technology": "Redis",
+      "owner": "Platform team",
+      "tags": ["ephemeral"],
+      "boundaryId": "data",
+      "metadata": {}
+    },
+    {
+      "id": "payment-provider",
+      "kind": "external",
+      "name": "Payment provider",
+      "description": "External payment authorization and settlement.",
+      "technology": "Stripe",
+      "owner": "Platform team",
+      "tags": ["third-party"],
+      "boundaryId": null,
+      "metadata": {}
+    }
+  ],
+  "relationships": [
+    {
+      "id": "web-to-gateway",
+      "source": "web-client",
+      "target": "api-gateway",
+      "label": "Requests",
+      "protocol": "HTTPS",
+      "interaction": "sync",
+      "description": ""
+    },
+    {
+      "id": "gateway-to-catalog",
+      "source": "api-gateway",
+      "target": "catalog-service",
+      "label": "Browse",
+      "protocol": "REST",
+      "interaction": "sync",
+      "description": ""
+    },
+    {
+      "id": "gateway-to-orders",
+      "source": "api-gateway",
+      "target": "order-service",
+      "label": "Checkout",
+      "protocol": "REST",
+      "interaction": "sync",
+      "description": ""
+    },
+    {
+      "id": "gateway-to-identity",
+      "source": "api-gateway",
+      "target": "identity-service",
+      "label": "Authenticate",
+      "protocol": "OAuth 2.0",
+      "interaction": "sync",
+      "description": ""
+    },
+    {
+      "id": "catalog-to-db",
+      "source": "catalog-service",
+      "target": "primary-database",
+      "label": "Products",
+      "protocol": "SQL",
+      "interaction": "sync",
+      "description": ""
+    },
+    {
+      "id": "orders-to-db",
+      "source": "order-service",
+      "target": "primary-database",
+      "label": "Orders",
+      "protocol": "SQL",
+      "interaction": "sync",
+      "description": ""
+    },
+    {
+      "id": "identity-to-sessions",
+      "source": "identity-service",
+      "target": "session-store",
+      "label": "Sessions",
+      "protocol": "RESP",
+      "interaction": "sync",
+      "description": ""
+    },
+    {
+      "id": "orders-to-payments",
+      "source": "order-service",
+      "target": "payment-provider",
+      "label": "Charge",
+      "protocol": "HTTPS",
+      "interaction": "sync",
+      "description": ""
+    }
+  ],
+  "boundaries": [
+    {
+      "id": "application",
+      "name": "Application layer",
+      "type": "system",
+      "description": "Private application network"
+    },
+    {
+      "id": "data",
+      "name": "Data layer",
+      "type": "trust",
+      "description": "Protected persistence and messaging"
+    }
+  ],
+  "views": [
+    {
+      "id": "overview",
+      "name": "System overview",
+      "description": "The complete picture",
+      "kinds": [],
+      "layout": {
+        "direction": "LR",
+        "positions": {
+          "web-client": { "x": 0, "y": 190 },
+          "api-gateway": { "x": 310, "y": 190 },
+          "catalog-service": { "x": 620, "y": 10 },
+          "order-service": { "x": 620, "y": 190 },
+          "identity-service": { "x": 620, "y": 370 },
+          "primary-database": { "x": 950, "y": 85 },
+          "session-store": { "x": 950, "y": 285 },
+          "payment-provider": { "x": 950, "y": 490 }
+        }
+      }
+    },
+    {
+      "id": "services",
+      "name": "Application services",
+      "description": "Focus on the application layer",
+      "kinds": ["gateway", "service"],
+      "layout": {
+        "direction": "LR",
+        "positions": {
+          "web-client": { "x": 0, "y": 190 },
+          "api-gateway": { "x": 310, "y": 190 },
+          "catalog-service": { "x": 620, "y": 10 },
+          "order-service": { "x": 620, "y": 190 },
+          "identity-service": { "x": 620, "y": 370 },
+          "primary-database": { "x": 950, "y": 85 },
+          "session-store": { "x": 950, "y": 285 },
+          "payment-provider": { "x": 950, "y": 490 }
+        }
+      }
+    },
+    {
+      "id": "data-flow",
+      "name": "Data & messaging",
+      "description": "Persistence and asynchronous processing",
+      "kinds": ["service", "database", "queue"],
+      "layout": {
+        "direction": "LR",
+        "positions": {
+          "web-client": { "x": 0, "y": 190 },
+          "api-gateway": { "x": 310, "y": 190 },
+          "catalog-service": { "x": 620, "y": 10 },
+          "order-service": { "x": 620, "y": 190 },
+          "identity-service": { "x": 620, "y": 370 },
+          "primary-database": { "x": 950, "y": 85 },
+          "session-store": { "x": 950, "y": 285 },
+          "payment-provider": { "x": 950, "y": 490 }
+        }
+      }
+    }
+  ],
+  "schemaVersion": 1,
+  "id": "example-commerce",
+  "revision": 0,
+  "createdAt": "2026-11-04T00:00:00.000Z",
+  "updatedAt": "2026-11-04T00:00:00.000Z"
+}

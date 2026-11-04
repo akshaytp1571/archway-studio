@@ -1,0 +1,489 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "baseRevision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "operations": {
+      "minItems": 1,
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "const": "add_component" },
+              "component": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                  "kind": {
+                    "type": "string",
+                    "enum": ["client", "gateway", "service", "database", "queue", "external"]
+                  },
+                  "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "description": { "default": "", "type": "string", "maxLength": 2000 },
+                  "technology": { "default": "", "type": "string", "maxLength": 100 },
+                  "owner": { "default": "", "type": "string", "maxLength": 100 },
+                  "tags": {
+                    "default": [],
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1, "maxLength": 40 }
+                  },
+                  "boundaryId": {
+                    "default": null,
+                    "anyOf": [
+                      { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                      { "type": "null" }
+                    ]
+                  },
+                  "metadata": {
+                    "default": {},
+                    "type": "object",
+                    "propertyNames": { "type": "string", "maxLength": 80 },
+                    "additionalProperties": { "type": "string", "maxLength": 1000 }
+                  }
+                },
+                "required": ["id", "kind", "name"],
+                "additionalProperties": false
+              },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "x": { "type": "number", "minimum": -20000, "maximum": 20000 },
+                  "y": { "type": "number", "minimum": -20000, "maximum": 20000 }
+                },
+                "required": ["x", "y"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["op", "component"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "const": "update_component" },
+              "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+              "patch": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": ["client", "gateway", "service", "database", "queue", "external"]
+                  },
+                  "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "description": { "type": "string", "maxLength": 2000 },
+                  "technology": { "type": "string", "maxLength": 100 },
+                  "owner": { "type": "string", "maxLength": 100 },
+                  "tags": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1, "maxLength": 40 }
+                  },
+                  "boundaryId": {
+                    "anyOf": [
+                      { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                      { "type": "null" }
+                    ]
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "propertyNames": { "type": "string", "maxLength": 80 },
+                    "additionalProperties": { "type": "string", "maxLength": 1000 }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": ["op", "id", "patch"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "const": "remove_component" },
+              "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+              "cascade": { "default": false, "type": "boolean" }
+            },
+            "required": ["op", "id"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "const": "add_relationship" },
+              "relationship": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                  "source": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                  "target": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                  "label": { "default": "", "type": "string", "maxLength": 100 },
+                  "protocol": { "default": "", "type": "string", "maxLength": 60 },
+                  "interaction": { "default": "sync", "type": "string", "enum": ["sync", "async"] },
+                  "description": { "default": "", "type": "string", "maxLength": 1000 }
+                },
+                "required": ["id", "source", "target"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["op", "relationship"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "const": "update_relationship" },
+              "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+              "patch": {
+                "type": "object",
+                "properties": {
+                  "source": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                  "target": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                  "label": { "type": "string", "maxLength": 100 },
+                  "protocol": { "type": "string", "maxLength": 60 },
+                  "interaction": { "type": "string", "enum": ["sync", "async"] },
+                  "description": { "type": "string", "maxLength": 1000 }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": ["op", "id", "patch"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "const": "remove_relationship" },
+              "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" }
+            },
+            "required": ["op", "id"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "const": "add_boundary" },
+              "boundary": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                  "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "type": {
+                    "default": "system",
+                    "type": "string",
+                    "enum": ["system", "trust", "network"]
+                  },
+                  "description": { "default": "", "type": "string", "maxLength": 1000 }
+                },
+                "required": ["id", "name"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["op", "boundary"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "const": "update_boundary" },
+              "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+              "patch": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "type": { "type": "string", "enum": ["system", "trust", "network"] },
+                  "description": { "type": "string", "maxLength": 1000 }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": ["op", "id", "patch"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "const": "remove_boundary" },
+              "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" }
+            },
+            "required": ["op", "id"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "const": "update_project" },
+              "patch": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "description": { "type": "string", "maxLength": 2000 }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": ["op", "patch"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "const": "set_layout" },
+              "viewId": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+              "positions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$"
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "number", "minimum": -20000, "maximum": 20000 },
+                    "y": { "type": "number", "minimum": -20000, "maximum": 20000 }
+                  },
+                  "required": ["x", "y"],
+                  "additionalProperties": false
+                }
+              },
+              "direction": { "type": "string", "enum": ["LR", "TB"] }
+            },
+            "required": ["op", "viewId", "positions"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "const": "add_view" },
+              "view": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                  "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "description": { "default": "", "type": "string", "maxLength": 1000 },
+                  "kinds": {
+                    "default": [],
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["client", "gateway", "service", "database", "queue", "external"]
+                    }
+                  },
+                  "layout": {
+                    "type": "object",
+                    "properties": {
+                      "direction": { "default": "LR", "type": "string", "enum": ["LR", "TB"] },
+                      "positions": {
+                        "default": {},
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string",
+                          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$"
+                        },
+                        "additionalProperties": {
+                          "type": "object",
+                          "properties": {
+                            "x": { "type": "number", "minimum": -20000, "maximum": 20000 },
+                            "y": { "type": "number", "minimum": -20000, "maximum": 20000 }
+                          },
+                          "required": ["x", "y"],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["id", "name", "layout"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["op", "view"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "const": "remove_view" },
+              "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" }
+            },
+            "required": ["op", "id"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": { "type": "string", "const": "replace_content" },
+              "content": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "description": { "default": "", "type": "string", "maxLength": 2000 },
+                  "components": {
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                        "kind": {
+                          "type": "string",
+                          "enum": ["client", "gateway", "service", "database", "queue", "external"]
+                        },
+                        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                        "description": { "default": "", "type": "string", "maxLength": 2000 },
+                        "technology": { "default": "", "type": "string", "maxLength": 100 },
+                        "owner": { "default": "", "type": "string", "maxLength": 100 },
+                        "tags": {
+                          "default": [],
+                          "maxItems": 20,
+                          "type": "array",
+                          "items": { "type": "string", "minLength": 1, "maxLength": 40 }
+                        },
+                        "boundaryId": {
+                          "default": null,
+                          "anyOf": [
+                            { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                            { "type": "null" }
+                          ]
+                        },
+                        "metadata": {
+                          "default": {},
+                          "type": "object",
+                          "propertyNames": { "type": "string", "maxLength": 80 },
+                          "additionalProperties": { "type": "string", "maxLength": 1000 }
+                        }
+                      },
+                      "required": ["id", "kind", "name"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "relationships": {
+                    "maxItems": 1500,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                        "source": {
+                          "type": "string",
+                          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$"
+                        },
+                        "target": {
+                          "type": "string",
+                          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$"
+                        },
+                        "label": { "default": "", "type": "string", "maxLength": 100 },
+                        "protocol": { "default": "", "type": "string", "maxLength": 60 },
+                        "interaction": {
+                          "default": "sync",
+                          "type": "string",
+                          "enum": ["sync", "async"]
+                        },
+                        "description": { "default": "", "type": "string", "maxLength": 1000 }
+                      },
+                      "required": ["id", "source", "target"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "boundaries": {
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                        "type": {
+                          "default": "system",
+                          "type": "string",
+                          "enum": ["system", "trust", "network"]
+                        },
+                        "description": { "default": "", "type": "string", "maxLength": 1000 }
+                      },
+                      "required": ["id", "name"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "views": {
+                    "minItems": 1,
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+                        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                        "description": { "default": "", "type": "string", "maxLength": 1000 },
+                        "kinds": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "client",
+                              "gateway",
+                              "service",
+                              "database",
+                              "queue",
+                              "external"
+                            ]
+                          }
+                        },
+                        "layout": {
+                          "type": "object",
+                          "properties": {
+                            "direction": {
+                              "default": "LR",
+                              "type": "string",
+                              "enum": ["LR", "TB"]
+                            },
+                            "positions": {
+                              "default": {},
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$"
+                              },
+                              "additionalProperties": {
+                                "type": "object",
+                                "properties": {
+                                  "x": { "type": "number", "minimum": -20000, "maximum": 20000 },
+                                  "y": { "type": "number", "minimum": -20000, "maximum": 20000 }
+                                },
+                                "required": ["x", "y"],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": ["id", "name", "layout"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["name", "components", "relationships", "boundaries", "views"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["op", "content"],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "source": {
+      "default": "agent",
+      "type": "string",
+      "enum": ["human", "agent", "import", "undo", "redo"]
+    },
+    "message": { "default": "", "type": "string", "maxLength": 240 }
+  },
+  "required": ["baseRevision", "operations"],
+  "additionalProperties": false
+}

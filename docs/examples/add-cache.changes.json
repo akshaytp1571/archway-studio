@@ -1,0 +1,34 @@
+{
+  "baseRevision": 0,
+  "operations": [
+    {
+      "op": "add_component",
+      "component": {
+        "id": "catalog-cache",
+        "kind": "database",
+        "name": "Catalog cache",
+        "description": "A short-lived read cache; PostgreSQL remains the source of truth.",
+        "technology": "Redis",
+        "owner": "Platform team",
+        "tags": ["cache", "ephemeral"],
+        "boundaryId": "data",
+        "metadata": { "ttlSeconds": "60" }
+      },
+      "position": { "x": 1270, "y": 10 }
+    },
+    {
+      "op": "add_relationship",
+      "relationship": {
+        "id": "catalog-to-cache",
+        "source": "catalog-service",
+        "target": "catalog-cache",
+        "label": "Cache lookups",
+        "protocol": "RESP",
+        "interaction": "sync",
+        "description": ""
+      }
+    }
+  ],
+  "source": "agent",
+  "message": "Add a catalog read cache"
+}

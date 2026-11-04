@@ -1,0 +1,30 @@
+﻿name: Feature proposal
+description: Propose a scoped improvement for humans or agents.
+title: 'proposal: '
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User or agent problem
+      description: Explain the problem, not just a desired button.
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Proposed scope and alternatives
+      description: Separate MVP scope from future work.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Model, API, persistence, and security impact
+      description: Consider stable IDs, revisions, migrations, agent permissions, and privacy.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Include meaningful verification and documentation requirements.
+    validations:
+      required: true

@@ -1,0 +1,33 @@
+﻿name: Bug report
+description: Report a reproducible application or agent-integration problem.
+title: 'bug: '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use synthetic/sample data. Do not post provider keys, raw settings, private models, or exploitable security details. For vulnerabilities, arrange a confidential report under the security policy.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v0.1.0 or a commit SHA
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include exact steps/commands with secrets removed.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and checks
+      description: OS, Node/npm/browser versions, and relevant command results.
