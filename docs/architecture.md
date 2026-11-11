@@ -1,4 +1,4 @@
-﻿# Architecture and source map
+# Architecture and source map
 
 ## Core idea
 
@@ -90,6 +90,14 @@ The provider receives semantic architecture context and view summaries, not a sc
 - [Browser checks](../tests/browser.ts): visual editing, proposal review/apply, import/export, persistence, external edits, stale drafts, mobile layout.
 
 Browser tests serve isolated built assets and use an OS temporary data store. They do not exercise or overwrite the user's running project.
+
+## Local milestone modules
+
+- [Provider routes](../server/provider-routes.ts) propagate disconnect cancellation and explicit saved-connection testing.
+- [Snapshots](../shared/snapshots.ts), [snapshot routes](../server/snapshot-routes.ts), and the [store](../server/store.ts) provide versioned captures and atomic revision-checked restore via the same apply engine.
+- [Inventory mapping](../shared/inventory.ts) and [preview route](../server/inventory-routes.ts) only propose validated additions/updates; the normal explicit apply path persists them.
+- [Semantic diff](../shared/diff.ts), [proposal review](../src/ProposalDiff.tsx), and [search](../shared/search.ts) remain pure projections/utilities, not another persisted model.
+- [Workspace dialogs](../src/WorkspaceModals.tsx) edit view/boundary semantics through the canonical operations. No public-hosting protections were removed.
 
 ## Extension checklist
 

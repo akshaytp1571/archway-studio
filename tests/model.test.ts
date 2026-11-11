@@ -1,12 +1,14 @@
-﻿import test from 'node:test'
+import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   ChangeRequestSchema,
   ComponentSchema,
   OperationSchema,
   ProjectSchema,
+  ViewPatchSchema,
   applyOperations,
   analyzeImpact,
+  describeOperation,
   validateArchitecture,
   visibleComponents,
 } from '../shared/model'
@@ -99,6 +101,65 @@ test('moving a card changes a view, not the semantic component', () => {
   assert.deepEqual(after.relationships, project.relationships)
   assert.deepEqual(after.views[0].layout.positions['web-client'], { x: 500, y: 300 })
   assert.deepEqual(after.views[1], project.views[1])
+})
+test('view patches preserve layout, identity, unrelated fields, and omitted values', () => {
+  const project = createProject()
+  const original = structuredClone(project.views[0])
+  const patch = OperationSchema.parse({
+    op: 'update_view',
+    id: original.id,
+    patch: { name: 'Renamed' },
+  })
+  const after = applyOperations(project, [patch])
+  assert.equal(after.schemaVersion, 1)
+  assert.equal(after.views[0].id, original.id)
+  assert.equal(after.views[0].name, 'Renamed')
+  assert.equal(describeOperation(patch), `Update view ${original.id}`)
+  assert.equal(after.views[0].description, original.description)
+  assert.deepEqual(after.views[0].kinds, original.kinds)
+  assert.deepEqual(after.views[0].layout, original.layout)
+  assert.deepEqual(after.views.slice(1), project.views.slice(1))
+  assert.equal(after.name, project.name)
+  assert.equal(after.description, project.description)
+  assert.deepEqual(after.components, project.components)
+  assert.deepEqual(after.relationships, project.relationships)
+  assert.deepEqual(after.boundaries, project.boundaries)
+  assert.equal(
+    OperationSchema.safeParse({ op: 'update_view', id: original.id, patch: {} }).success,
+    true,
+  )
+  assert.equal(
+    OperationSchema.safeParse({ op: 'update_view', id: original.id, patch: { name: '' } }).success,
+    false,
+  )
+  assert.deepEqual(ViewPatchSchema.parse({}), {})
+  assert.deepEqual(ViewPatchSchema.parse({ description: 'Changed' }), { description: 'Changed' })
+  assert.throws(
+    () =>
+      applyOperations(project, [{ op: 'update_view', id: 'missing-view', patch: { name: 'No' } }]),
+    /does not exist/,
+  )
+})
+test('invalid view patch in a batch is rejected without mutating the source', () => {
+  const project = createProject(),
+    original = structuredClone(project)
+  assert.throws(() =>
+    applyOperations(project, [
+      { op: 'update_project', patch: { name: 'Should not save' } },
+      { op: 'update_view', id: 'overview', patch: { name: '' } },
+    ] as never),
+  )
+  assert.deepEqual(project, original)
+})
+test('last view cannot be removed', () => {
+  const project = createProject('blank')
+  project.views = project.views.slice(0, 1)
+  assert.equal(project.views.length, 1)
+  assert.throws(
+    () => applyOperations(project, [{ op: 'remove_view', id: project.views[0].id }]),
+    /at least one view/,
+  )
+  assert.equal(project.views.length, 1)
 })
 test('view filters preserve the shared component identities', () => {
   const project = createProject()

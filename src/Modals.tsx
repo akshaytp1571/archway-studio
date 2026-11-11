@@ -37,9 +37,12 @@ import {
   type Project,
 } from '../shared/model'
 import { TEMPLATE_CATALOG, type TemplateId } from '../shared/templates'
+import { normalizeProviderBaseUrl } from '../shared/provider-settings'
 import { api, downloadExport, type ProviderState } from './api'
 import { EmptyIllustration, KINDS, KindIcon, kindEntries } from './ui'
 import type { CommitOptions } from './useStudio'
+import { ProviderConnectionTest } from './ProviderConnectionTest'
+import { searchComponents } from '../shared/search'
 
 export function Modal({
   title,
@@ -641,9 +644,14 @@ export function ProviderModal({
     [model, setModel] = useState(config.model),
     [key, setKey] = useState(''),
     [clearKey, setClearKey] = useState(false),
+    [reuseApiKey, setReuseApiKey] = useState(false),
     [enabled, setEnabled] = useState<boolean>(config.source === 'none' ? true : config.configured),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('')
+  const endpointChanged =
+      normalizeProviderBaseUrl(baseUrl) !== normalizeProviderBaseUrl(config.baseUrl),
+    needsReuseConsent =
+      config.hasApiKey && !key && !clearKey && (config.source === 'environment' || endpointChanged)
   return (
     <Modal
       title="Connect your architecture assistant"
@@ -657,13 +665,21 @@ export function ProviderModal({
           setBusy(true)
           setError('')
           try {
+            if (needsReuseConsent && !reuseApiKey) {
+              setError(
+                'Confirm reusing the existing key for this endpoint, or enter a new key or clear it.',
+              )
+              setBusy(false)
+              return
+            }
             const saved = await api<ProviderState>('/api/settings/provider', {
               method: 'PUT',
               body: {
                 baseUrl,
                 model,
                 enabled,
-                ...(key ? { apiKey: key } : clearKey ? { apiKey: '' } : {}),
+                ...(key !== '' ? { apiKey: key } : clearKey ? { apiKey: '' } : {}),
+                ...(reuseApiKey ? { reuseApiKey: true } : {}),
               },
             })
             onSave(saved)
@@ -691,7 +707,11 @@ export function ProviderModal({
               type="url"
               required
               value={baseUrl}
-              onChange={(event) => setBaseUrl(event.target.value)}
+              onChange={(event) => {
+                setBaseUrl(event.target.value)
+                setReuseApiKey(false)
+                setError('')
+              }}
               placeholder="https://api.openai.com/v1"
             />
           </Field>
@@ -712,20 +732,45 @@ export function ProviderModal({
               onChange={(event) => setKey(event.target.value)}
               placeholder={
                 config.hasApiKey
-                  ? 'A key is saved — leave blank to keep it'
+                  ? config.source === 'environment'
+                    ? 'Provided by environment — not shown'
+                    : 'A key is saved locally — leave blank to keep it'
                   : 'Enter your provider key'
               }
             />
           </Field>
           {config.hasApiKey && (
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={clearKey}
-                onChange={(event) => setClearKey(event.target.checked)}
-              />
-              Clear the currently saved key
-            </label>
+            <>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={clearKey}
+                  onChange={(event) => {
+                    setClearKey(event.target.checked)
+                    if (event.target.checked) setReuseApiKey(false)
+                  }}
+                />
+                Clear the {config.source === 'environment' ? 'environment-provided' : 'saved'} key
+              </label>
+              {needsReuseConsent && (
+                <label className="checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={reuseApiKey}
+                    onChange={(event) => setReuseApiKey(event.target.checked)}
+                  />
+                  {config.source === 'environment'
+                    ? 'I explicitly consent to copying the environment key into local plaintext settings for this endpoint'
+                    : 'I explicitly consent to reusing the saved key at this different endpoint'}
+                </label>
+              )}
+            </>
+          )}
+          {config.source === 'environment' && config.hasApiKey && (
+            <p className="info-note" role="note">
+              The active key comes from the server environment and is never returned to this
+              browser. Reusing it copies it into the local plaintext settings file.
+            </p>
           )}
           <label className="checkbox-field">
             <input
@@ -754,6 +799,7 @@ export function ProviderModal({
           </button>
         </footer>
       </form>
+      <ProviderConnectionTest disabled={busy} />
     </Modal>
   )
 }
@@ -936,16 +982,19 @@ export function SearchModal({
   onClose: () => void
   onSelect: (id: string) => void
 }) {
-  const [query, setQuery] = useState('')
-  const matches = project.components
-    .filter((c) =>
-      `${c.name} ${c.id} ${c.technology} ${c.kind}`.toLowerCase().includes(query.toLowerCase()),
-    )
-    .slice(0, 30)
+  const [query, setQuery] = useState(''),
+    [active, setActive] = useState(0)
+  const listId = useId(),
+    matches = searchComponents(project, query)
+  const choose = (id: string) => {
+    onSelect(id)
+    onClose()
+  }
+  const selected = Math.min(active, Math.max(0, matches.length - 1))
   return (
     <Modal
       title="Find your way around"
-      subtitle="Search by name, technology, type, or stable ID."
+      subtitle="Search by name, technology, type, stable ID, owner, or tags."
       onClose={onClose}
     >
       <div className="modal-body">
@@ -953,20 +1002,49 @@ export function SearchModal({
           <Search size={18} />
           <input
             autoFocus
+            role="combobox"
             aria-label="Search components"
+            aria-autocomplete="list"
+            aria-expanded={true}
+            aria-controls={listId}
+            aria-activedescendant={matches[selected] ? `${listId}-${selected}` : undefined}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setActive(0)
+            }}
             placeholder="Search components…"
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown') {
+                event.preventDefault()
+                setActive((value) => (value + 1) % Math.max(1, matches.length))
+              } else if (event.key === 'ArrowUp') {
+                event.preventDefault()
+                setActive((value) => (value + matches.length - 1) % Math.max(1, matches.length))
+              } else if (event.key === 'Enter' && matches[selected]) {
+                event.preventDefault()
+                choose(matches[selected].id)
+              }
+            }}
           />
         </div>
-        <div className="search-results">
-          {matches.map((component) => (
+        <p role="status" aria-live="polite">
+          {matches.length} results. Use arrow keys and Enter, or Tab to a result.
+        </p>
+        <div
+          className="search-results"
+          id={listId}
+          role="listbox"
+          aria-label="Component search results"
+        >
+          {matches.map((component, index) => (
             <button
+              role="option"
+              aria-selected={selected === index}
+              id={`${listId}-${index}`}
               key={component.id}
-              onClick={() => {
-                onSelect(component.id)
-                onClose()
-              }}
+              onFocus={() => setActive(index)}
+              onClick={() => choose(component.id)}
             >
               <KindIcon kind={component.kind} />
               <span>
@@ -978,14 +1056,14 @@ export function SearchModal({
               <ChevronRight size={16} />
             </button>
           ))}
-          {!matches.length && (
-            <div className="small-empty">
-              <Search size={24} />
-              <p>No components found.</p>
-              <small>Try a different name or technology.</small>
-            </div>
-          )}
         </div>
+        {!matches.length && (
+          <div className="small-empty" role="status">
+            <Search size={24} />
+            <p>No components found.</p>
+            <small>Try another name, technology, owner, or tag.</small>
+          </div>
+        )}
       </div>
     </Modal>
   )

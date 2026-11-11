@@ -1,4 +1,4 @@
-﻿# Configuration and data privacy
+# Configuration and data privacy
 
 Configuration is handled by [the server entry](../server/index.ts), [provider settings](../server/provider.ts), and [browser checks](../tests/browser.ts). The app does not automatically load a dotenv file.
 
@@ -39,19 +39,25 @@ Do not paste real secrets into a committed script or shared shell transcript. A 
 
 ## Provider settings contract
 
-`PUT /api/settings/provider` accepts `baseUrl`, `model`, optional `apiKey`, and optional `enabled` (defaults true).
+`PUT /api/settings/provider` accepts `baseUrl`, `model`, optional `apiKey`, optional `enabled` (defaults true), and optional boolean `reuseApiKey`.
 
-- Omitting `apiKey` preserves the previously configured key.
-- Sending `apiKey: ""` clears the saved key.
+- If `apiKey` is supplied—including `""`—that exact value is used; an empty string clears the key.
+- If `apiKey` is omitted, an existing key from saved settings is preserved automatically only when the normalized base URL is unchanged. Equality normalization canonicalizes scheme/host/default port, removes trailing pathname slashes, and preserves pathname case, query, and hash. It is used only for comparison and does not change provider request URLs.
+- If omission would reuse an environment key, or a key from saved settings with a changed base URL, the save is rejected with HTTP 400 `PROVIDER_KEY_CONFIRMATION_REQUIRED` unless `reuseApiKey: true` explicitly confirms copying the key. A rejected save leaves settings unchanged. A fresh keyless configuration can be saved without consent.
+- `reuseApiKey` is a one-request consent flag, never persisted. Persisted settings contain only the existing configuration fields.
 - Sending `enabled: false` disables the saved configuration without falling back to environment credentials.
 - `GET /api/settings/provider` returns base URL, model, `configured`, `hasApiKey`, and configuration `source`; it never returns the key.
 - `configured` means enabled/configured, not reachable or successfully tested.
 
 The provider must support chat completions and `response_format: {"type":"json_object"}`. Archway validates returned plans and graph references; it does not guarantee every compatible model will produce a useful plan.
 
+## Explicit connection testing and cancellation
+
+Use **Test saved connection** after saving provider edits. The server sends a tiny synthetic chat-completions request using the saved configuration; it sends no project content and never returns a key. Success includes model, checked time, and latency only after a valid protocol response. The request may incur provider charges; it is never run automatically. Cancel stops the client request and aborts upstream work on disconnect. Planning and test timeouts include response-body reading, not just headers.
+
 ## Storage boundary
 
-The data directory contains a project-document subdirectory and a provider-settings document. Project storage includes history and undo snapshots; exports contain only the canonical model.
+The data directory contains a project-document subdirectory and a provider-settings document. Project storage includes history and undo snapshots; named snapshots live separately and contain canonical architecture only. Snapshot backup exports contain no settings/credentials; a whole data-directory backup can still include the plaintext provider-settings file. See [recovery](snapshots.md).
 
 The repository's [ignore rules](../.gitignore) exclude normal data, environment secrets, dependencies, builds, logs, and artifacts. A custom data directory inside another repository path might not be ignored automatically; choose an external private location and verify before staging.
 

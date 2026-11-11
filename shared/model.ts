@@ -1,4 +1,4 @@
-﻿import { z } from 'zod'
+import { z } from 'zod'
 
 export const IdSchema = z
   .string()
@@ -93,6 +93,14 @@ export const ViewSchema = z
   })
   .strict()
 export type ArchitectureView = z.infer<typeof ViewSchema>
+export const ViewPatchSchema = z
+  .object({
+    name: z.string().trim().min(1).max(100).optional(),
+    description: z.string().max(1000).optional(),
+    kinds: z.array(ComponentKindSchema).optional(),
+  })
+  .strict()
+export type ViewPatch = z.infer<typeof ViewPatchSchema>
 export const ArchitectureContentSchema = z
   .object({
     name: z.string().trim().min(1).max(100),
@@ -170,6 +178,7 @@ export const OperationSchema = z.discriminatedUnion('op', [
     })
     .strict(),
   z.object({ op: z.literal('add_view'), view: ViewSchema }).strict(),
+  z.object({ op: z.literal('update_view'), id: IdSchema, patch: ViewPatchSchema }).strict(),
   z.object({ op: z.literal('remove_view'), id: IdSchema }).strict(),
   z.object({ op: z.literal('replace_content'), content: ArchitectureContentSchema }).strict(),
 ])
@@ -410,6 +419,9 @@ export function applyOperations(project: Project, operations: Operation[]): Proj
         unique(next.views, operation.view.id)
         next.views.push(structuredClone(operation.view))
         break
+      case 'update_view':
+        Object.assign(requireItem(next.views, operation.id, 'View'), operation.patch)
+        break
       case 'remove_view': {
         requireItem(next.views, operation.id, 'View')
         if (next.views.length === 1)
@@ -452,6 +464,8 @@ export function describeOperation(operation: Operation): string {
       return `Arrange ${Object.keys(operation.positions).length} components`
     case 'add_view':
       return `Add view ${operation.view.name}`
+    case 'update_view':
+      return `Update view ${operation.id}`
     case 'remove_view':
       return `Remove view ${operation.id}`
     case 'replace_content':

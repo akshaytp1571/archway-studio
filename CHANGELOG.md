@@ -1,10 +1,22 @@
-﻿# Changelog
+# Changelog
 
 Changes are recorded here when shipped. Planned work belongs in [the roadmap](docs/roadmap.md), not in this release history.
 
 ## Unreleased
 
-- Adopt the MIT open-source license, add the SPDX package/lockfile metadata, and update contribution and coding-agent guidance. Repository visibility remains private.
+- Publish the source repository publicly under MIT, keeping local data, credentials, dependencies, and generated artifacts excluded.
+
+- Add explicit provider connection tests, cancellation, bounded response-body timeouts, and sanitized error regressions.
+- Enable owner-approved pinned CI checks locally, including milestone flows and synthetic performance diagnostics.
+- Add canonical partial view updates, visual view/boundary editors, versioned named snapshots, canonical backups, and atomic reviewed restore.
+- Add field-level proposal diffs, advisory explanations, keyboard semantic search/canvas inspection, and maximum-size synthetic measurement tools.
+- Add one local JSON inventory adapter producing validated review-before-apply additions/updates without execution or cloud access.
+
+- Prevent delayed provider-settings reads or errors from overwriting a later successful save.
+- Require explicit credential reuse confirmation when switching provider endpoints or copying an environment key into local settings; support explicit replacement and clearing.
+- Add provider/API/browser regression coverage and a prioritized local-first improvement roadmap.
+
+- Adopt the MIT open-source license, add the SPDX package/lockfile metadata, and update contribution and coding-agent guidance. Licensing is independent of repository visibility.
 
 - Prevent quick-find from replacing an active/saving dialog; browser checks wait for creation dialogs to finish.
 - Normalize Git text line endings for reproducible Windows/Linux checkouts.

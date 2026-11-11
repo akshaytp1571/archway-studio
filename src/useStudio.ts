@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ProjectSchema, type Operation, type Project, type ProjectSummary } from '../shared/model'
 import type { TemplateId } from '../shared/templates'
 import { ApiError, api, listProjects, type ProjectState } from './api'
@@ -42,6 +42,20 @@ export function useStudio() {
   const refreshProjects = useCallback(async () => {
     setProjects(await listProjects())
   }, [])
+  const acceptExternalState = useCallback(
+    async (value: ProjectState): Promise<boolean> => {
+      const snapshot = current.current
+      const accepted = Boolean(
+        snapshot &&
+        snapshot.project.id === value.project.id &&
+        snapshot.project.revision <= value.project.revision,
+      )
+      if (accepted) accept(value)
+      await refreshProjects()
+      return accepted
+    },
+    [accept, refreshProjects],
+  )
   const reload = useCallback(async () => {
     const id = current.current?.project.id
     if (id) accept(await api<ProjectState>(`/api/projects/${id}`))
@@ -226,6 +240,7 @@ export function useStudio() {
     travel,
     create,
     importFile,
+    acceptExternalState,
     report,
   }
 }

@@ -35,11 +35,14 @@ import type { ProviderState } from './api'
 import { Field, FormError } from './Modals'
 import { KINDS, KindIcon, kindEntries, timeAgo } from './ui'
 import type { CommitOptions } from './useStudio'
+import { ProposalDiff } from './ProposalDiff'
+import type { InventoryReport } from '../shared/inventory'
 
 export type Proposal = {
   summary: string
   operations: Operation[]
-  mode: 'recipe' | 'provider'
+  mode: 'recipe' | 'provider' | 'inventory'
+  report?: InventoryReport
   model?: string
   proposedProject: Project
   validation: ValidationReport
@@ -77,6 +80,7 @@ export function AssistantPanel({
   onPlan,
   onApply,
   onDiscard,
+  onCancel,
 }: {
   project: Project
   proposal: Proposal | null
@@ -88,6 +92,7 @@ export function AssistantPanel({
   onPlan: (input: { prompt: string } | { recipeId: RecipeId }) => void
   onApply: () => void
   onDiscard: () => void
+  onCancel?: () => void
 }) {
   const [prompt, setPrompt] = useState('')
   const stale = Boolean(proposal && proposal.baseRevision !== project.revision)
@@ -105,7 +110,11 @@ export function AssistantPanel({
           <div className="panel-scroll proposal-content">
             <span className={`mode-pill ${proposal.mode}`}>
               <span className="live-dot" />
-              {proposal.mode === 'recipe' ? 'Built-in recipe' : proposal.model || 'Connected model'}
+              {proposal.mode === 'recipe'
+                ? 'Built-in recipe'
+                : proposal.mode === 'inventory'
+                  ? 'Local inventory'
+                  : proposal.model || 'Connected model'}
             </span>
             <div className="proposal-hero">
               <span>
@@ -160,6 +169,11 @@ export function AssistantPanel({
                 </div>
               ))}
             </div>
+            <ProposalDiff
+              before={project}
+              after={proposal.proposedProject}
+              validation={proposal.validation}
+            />
             <div className="validation-card">
               <CircleCheck size={17} />
               <span>
@@ -286,6 +300,11 @@ export function AssistantPanel({
                 </button>
               </div>
             </form>
+            {planning && onCancel && (
+              <button className="button" onClick={onCancel}>
+                Cancel generation
+              </button>
+            )}
             <div className="section-label">
               TRY A BUILT-IN RECIPE <span>NO LLM</span>
             </div>

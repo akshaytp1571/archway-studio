@@ -1,4 +1,4 @@
-﻿# Model and operation reference
+# Model and operation reference
 
 The source of truth is [the shared model engine](../shared/model.ts). The [project schema](reference/project.schema.json) describes canonical documents; the [change-request schema](reference/change-request.schema.json) describes accepted transaction input.
 
@@ -64,10 +64,11 @@ A transaction has `baseRevision`, `operations`, optional `source` (defaults to `
 | `update_project`      | `patch`                                     | Update project name/description, not ID/revision/timestamps                                     |
 | `set_layout`          | `viewId`, `positions`, optional `direction` | Merge coordinate entries into one view; unspecified positions/views remain unchanged            |
 | `add_view`            | `view`                                      | Add a unique view with its filter/layout                                                        |
+| `update_view`         | `id`, `patch`                               | Update supplied name/description/kinds only; ID and per-view layout remain unchanged            |
 | `remove_view`         | `id`                                        | Remove a view only if at least one remains                                                      |
 | `replace_content`     | `content`                                   | Replace name/description and all model collections, preserving project identity/server metadata |
 
-There is currently no `update_view` operation. Do not invent one or invent REST/MCP endpoints that are not in the [API reference](api.md).
+`update_view` is part of the canonical operation engine and therefore uses the existing transaction path; it does not add a separate REST or MCP endpoint. Its patch accepts optional `name`, `description`, and `kinds` only. Omitted values remain unchanged, and the stable view ID and complete layout are preserved. An invalid patch or missing view rejects the whole batch.
 
 ### Patch semantics
 

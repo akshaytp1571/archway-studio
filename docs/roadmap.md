@@ -1,45 +1,29 @@
-﻿# Roadmap, limitations, and non-goals
+# Local milestone implementation and remaining roadmap
 
-This document distinguishes implemented behavior from proposed work. See [the changelog](../CHANGELOG.md) for shipped changes.
+The seven agreed milestones are implemented as bounded local-first increments. They are **unreleased** working-tree changes. Local verification passed: 74 automated tests, the original and milestone browser suites, TypeScript, formatting, generated-documentation/link checks, the isolated production build, and synthetic Node/browser performance measurements. Provider tests used local mocks, not paid/live inference. The repository is published publicly under MIT. No GitHub-hosted pass is implied by local verification or a workflow file; inspect Actions for current results. Authentication, collaboration, cloud scanning, infrastructure execution, and encrypted secrets are not included.
 
-## Current limitations
+| Milestone                | Local implementation                                                                                                                      | Validation/exit gate                                                                                                                      | Remaining follow-up                                                                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 1. Provider reliability  | Explicit saved-connection protocol test, generation/test cancellation, bounded body-reading timeout, sanitized errors                     | Mock success/failure/shape/timeout/abort tests; UI connection/cancel; no project writes                                                   | Provider-specific streaming/compatibility and optional budgets                                         |
+| 2. CI quality gates      | Owner-approved pinned workflow with read-only permissions; unit/type/docs/build, browser and performance commands                         | Local commands pass; hosted run requires committing/pushing and observing Actions                                                         | Hosted cross-platform results are not yet available                                                    |
+| 3. View/boundary editing | Canonical `update_view`, create/edit/remove views, boundary metadata and membership in atomic batches                                     | Stable IDs/layout preserved, omission semantics, stale/invalid/last-view behavior, REST/MCP and UI regression checks                      | More layout/export directions and richer semantic filters                                              |
+| 4. Recovery              | Named read-only snapshots (20/project), canonical JSON backup, explicit preview/restore via normal revision-checked apply                 | Capture no revision/history change; stale/corrupt/future-version rejection; restore new revision/undo/identity; independent backup import | Deliberate snapshot deletion/retention UI, tested future-version migrations, broader backup scheduling |
+| 5. Proposal review       | Field-level stable-ID semantic diffs, additions/removals/nested properties, cascade counts, existing advisory warnings                    | Diff purity, unchanged/reordered model checks, no certification claims, discard no writes, explicit reviewed apply                        | Optional configurable advisory rule packs                                                              |
+| 6. Accessibility/scale   | Keyboard canvas inspection and quick-find; literal ID/name/kind/owner/tag search; synthetic 500-component/1,500-relationship measurements | Keyboard/browser regressions and repeatable Node/browser timings with hardware/build conditions                                           | Broader accessibility audit and optimizations selected from measurements                               |
+| 7. Discovery adapter     | Strict local inventoryVersion 1 JSON adapter: stable-ID add/update proposals, mapping report, no removal/execution/network scanning       | Invalid/duplicate/reference/size/no-op tests; readonly preview/discard; explicit atomic apply at reviewed revision                        | One separately agreed source adapter at a time; no automatic cloud discovery                           |
 
-- Local, single-user operation; no authentication, project permissions, hosted-service boundary, or enforced agent delegation policy.
-- Plain local provider settings, not encrypted secrets storage.
-- One writer process per data directory; no database/distributed concurrency coordination.
-- Snapshot-based undo/history has storage costs for larger models.
-- Kind-filtered views, not a complete formal C4 hierarchy or interchange implementation.
-- Boundary membership is model data, not runtime network/security enforcement. Creating/editing all boundary/view semantics is not exposed through a complete visual configuration UI.
-- SVG/Mermaid are view exports, not full round-trip models. Current export routing is left-to-right oriented.
-- No source-code/cloud discovery, infrastructure deployment execution, live runtime telemetry, pricing/cost engine, or automated best-practice certification.
-- A configured provider is not a tested connection. Schema-valid model output is not necessarily a good design.
-- The code and documentation are [MIT licensed](../LICENSE), but the repository remains private until the owner chooses public visibility.
-- A CI template is included but requires explicit workflow permission/activation before GitHub-hosted checks can run.
+## Architecture rules remain unchanged
 
-## Suggested sequence
+One canonical model feeds human, REST, and MCP edits. IDs are stable and case-sensitive. Positions belong to views. Preview never persists or advances revisions/history; each applied batch validates atomically at `baseRevision`. Imports create an independent project. Canonical project JSON is the only lossless round-trip format. Boundary membership is descriptive data, not network policy.
 
-### 1. Hosted-service safety before remote access
+See [model](model.md), [API](api.md), [snapshots](snapshots.md), [inventory](inventory.md), and [performance](performance.md). Relative effort for future follow-ups is small-to-medium for focused UI/provider work and large for public hosting/concurrency changes; no dates are promised.
 
-Design authentication, project permissions, agent operation scopes, encrypted credentials, SSRF/network policy, rate limits, session/CSRF controls, durable transactions, backups/migrations, and safe audit records. Do not start by removing loopback/Origin protections.
+## Security and hosting gate
 
-### 2. Stronger model/view editing
+The app remains local and single-user with one writer per data directory. Provider settings remain plaintext server-side files. Public hosting/collaboration requires a separate approved threat model, authentication, project authorization and agent scopes, secure sessions/CSRF, encrypted credentials, outbound/SSRF restrictions, rate/resource limits, safe audit policy, durable database transactions, supported multi-process conflicts, backups/migrations, and operational ownership. Do not remove loopback/Origin checks as a shortcut.
 
-Add explicit view editing, boundary editing, richer semantic constraints, consistent directional export routing, schema-version migration fixtures, and large-model performance measurements. Keep one canonical model and stable IDs.
+## Non-goals
 
-### 3. Collaboration
+No infrastructure deployment or arbitrary agent-generated execution, general-purpose whiteboard, hosted secrets vault, live telemetry, cost engine, automated best-practice certification, strict C4/Structurizr fidelity, or multi-user collaboration is claimed. Repository visibility is owner-controlled and independent of application security.
 
-Introduce a persistence/concurrency design suitable for multiple users/processes, intentional conflict resolution, presence/sharing, and permission-aware history. Preserve the distinction between model semantics and local UI preferences.
-
-### 4. Discovery and interoperability
-
-Explore code/cloud inventory import, strict C4/Structurizr/LikeC4 adapters, and documented mapping/round-trip limits. Discovery should produce reviewable proposals, not silently overwrite the saved architecture.
-
-### 5. Evidence-backed architecture assistance
-
-Add rule packs, policy checks, measured operational context, and explainable suggestions. Clearly distinguish estimated/observed data from model-generated speculation. Do not invent health or cost signals.
-
-## Non-goals for the current MVP
-
-The current version does not deploy infrastructure or execute arbitrary agent-generated code. It is not a general-purpose whiteboard, a secrets vault, a live observability platform, or a production architecture approval authority.
-
-Before taking a roadmap item, agree on acceptance criteria and follow [contributing](../CONTRIBUTING.md) and [the design decision](decisions/0001-model-first-local-first.md).
+See [security](../SECURITY.md), [local-first decision](decisions/0001-model-first-local-first.md), [development](development.md), and [changelog](../CHANGELOG.md).

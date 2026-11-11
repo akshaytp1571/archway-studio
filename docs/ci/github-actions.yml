@@ -1,4 +1,4 @@
-﻿name: Archway checks
+name: Archway checks
 
 on:
   push:
@@ -51,6 +51,9 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - run: npm run test:browser
+      - run: npm run test:milestones
+      - run: npm run benchmark
+      - run: npm run test:performance
       - name: Upload synthetic test screenshots and export
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

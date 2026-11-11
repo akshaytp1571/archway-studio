@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AlertCircle,
   ArrowDownToLine,
@@ -42,6 +42,9 @@ import {
   RelationshipModal,
   SearchModal,
 } from './Modals'
+import { ViewsModal, BoundariesModal } from './WorkspaceModals'
+import SnapshotModal from './SnapshotModal'
+import { InventoryModal } from './InventoryModal'
 import {
   ActivityPanel,
   AssistantPanel,
@@ -54,7 +57,20 @@ import { KINDS, KindIcon, Logo, kindEntries } from './ui'
 import { useStudio } from './useStudio'
 
 type Dialog =
-  | { type: 'new' | 'export' | 'provider' | 'agent' | 'search' | 'details' | 'delete' }
+  | {
+      type:
+        | 'new'
+        | 'export'
+        | 'provider'
+        | 'agent'
+        | 'search'
+        | 'details'
+        | 'delete'
+        | 'views'
+        | 'boundaries'
+        | 'snapshots'
+        | 'inventory'
+    }
   | { type: 'component'; kind?: ComponentKind }
   | { type: 'relationship'; source?: string; target?: string }
   | null
@@ -80,6 +96,8 @@ export default function App() {
   const canvas = useRef<CanvasHandle>(null),
     fileInput = useRef<HTMLInputElement>(null),
     noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
+    providerGeneration = useRef(0),
+    planningController = useRef<AbortController | null>(null),
     projectId = useRef<string | undefined>(undefined)
   projectId.current = project?.id
   const closeDialog = useCallback(() => setDialog(null), [])
@@ -89,7 +107,20 @@ export default function App() {
     noticeTimer.current = setTimeout(() => setNotice(null), kind === 'error' ? 9000 : 4500)
   }, [])
   useEffect(() => {
-    void api<ProviderState>('/api/settings/provider').then(setProvider).catch(studio.report)
+    const generation = ++providerGeneration.current
+    let active = true
+    void api<ProviderState>('/api/settings/provider')
+      .then((value) => {
+        if (active && providerGeneration.current === generation) setProvider(value)
+      })
+      .catch((cause) => {
+        if (active && providerGeneration.current === generation) studio.report(cause)
+      })
+    return () => {
+      active = false
+      // Also invalidate completions on unmount or StrictMode's effect replay.
+      if (providerGeneration.current === generation) providerGeneration.current++
+    }
   }, [studio.report])
   useEffect(() => {
     if (studio.error) notify(studio.error.message, 'error')
@@ -97,10 +128,14 @@ export default function App() {
   useEffect(
     () => () => {
       if (noticeTimer.current) clearTimeout(noticeTimer.current)
+      planningController.current?.abort()
     },
     [],
   )
   useEffect(() => {
+    planningController.current?.abort()
+    planningController.current = null
+    setPlanning(false)
     if (!project) return
     const saved = localStorage.getItem(`archway.view.${project.id}`)
     setViewId(project.views.some((v) => v.id === saved) ? saved! : project.views[0].id)
@@ -159,28 +194,52 @@ export default function App() {
     setPanel('assistant')
     setSelection(null)
     const id = project.id
+    const controller = new AbortController()
+    planningController.current = controller
     try {
       const value = await api<Proposal>('/api/assistant/plan', {
         method: 'POST',
         body: { projectId: id, baseRevision: project.revision, ...input },
+        signal: controller.signal,
       })
-      if (projectId.current === id) setProposal(value)
+      if (
+        projectId.current === id &&
+        planningController.current === controller &&
+        !controller.signal.aborted
+      )
+        setProposal(value)
     } catch (cause) {
-      studio.report(cause)
+      if (!controller.signal.aborted && planningController.current === controller)
+        studio.report(cause)
     } finally {
-      setPlanning(false)
+      if (planningController.current === controller) {
+        planningController.current = null
+        setPlanning(false)
+      }
     }
+  }
+  const cancelPlanning = () => {
+    planningController.current?.abort()
+    planningController.current = null
+    setPlanning(false)
+    notify('Generation cancelled. No changes were saved.')
   }
   const applyProposal = async () => {
     if (!proposal) return
     try {
       await studio.commit(proposal.operations, {
         expectedRevision: proposal.baseRevision,
-        source: proposal.mode === 'provider' ? 'agent' : 'human',
-        message: `${proposal.mode === 'recipe' ? 'Recipe: ' : 'AI: '}${proposal.summary}`.slice(
-          0,
-          240,
-        ),
+        source:
+          proposal.mode === 'provider'
+            ? 'agent'
+            : proposal.mode === 'inventory'
+              ? 'import'
+              : 'human',
+        message:
+          `${proposal.mode === 'recipe' ? 'Recipe: ' : proposal.mode === 'inventory' ? 'Inventory: ' : 'AI: '}${proposal.summary}`.slice(
+            0,
+            240,
+          ),
       })
       setProposal(null)
       notify(`${proposal.operations.length} changes applied to your architecture`)
@@ -333,6 +392,14 @@ export default function App() {
           <section className="sidebar-section views-section">
             <div className="section-label">
               VIEWS <span>{project.views.length}</span>
+              <button
+                disabled={blocked}
+                aria-label="Manage views"
+                title="Manage views"
+                onClick={() => setDialog({ type: 'views' })}
+              >
+                <Settings2 size={14} />
+              </button>
             </div>
             {project.views.map((view, index) => (
               <button
@@ -508,6 +575,34 @@ export default function App() {
               <ArrowDownToLine size={15} />
               <span>Export</span>
             </button>
+            <details className="project-tools">
+              <summary className="button compact" aria-label="Project tools">
+                Tools <MoreHorizontal size={15} />
+              </summary>
+              <div>
+                <button
+                  className="button"
+                  disabled={blocked}
+                  onClick={() => setDialog({ type: 'boundaries' })}
+                >
+                  Manage boundaries
+                </button>
+                <button
+                  className="button"
+                  disabled={blocked}
+                  onClick={() => setDialog({ type: 'snapshots' })}
+                >
+                  Snapshots and backups
+                </button>
+                <button
+                  className="button"
+                  disabled={blocked}
+                  onClick={() => setDialog({ type: 'inventory' })}
+                >
+                  Discover from local inventory
+                </button>
+              </div>
+            </details>
             <button
               className="button primary compact"
               disabled={blocked}
@@ -593,6 +688,7 @@ export default function App() {
               onClose={() => setPanel(null)}
               onSettings={openSettings}
               onPlan={(input) => void plan(input)}
+              onCancel={cancelPlanning}
               onApply={() => void applyProposal()}
               onDiscard={() => setProposal(null)}
             />
@@ -737,11 +833,52 @@ export default function App() {
           notify={notify}
         />
       )}
+      {dialog?.type === 'views' && (
+        <ViewsModal
+          project={project}
+          viewId={currentView.id}
+          commit={studio.commit}
+          onClose={closeDialog}
+          onViewSelect={setView}
+        />
+      )}
+      {dialog?.type === 'boundaries' && (
+        <BoundariesModal
+          project={project}
+          viewId={currentView.id}
+          commit={studio.commit}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.type === 'snapshots' && (
+        <SnapshotModal
+          project={project}
+          onClose={closeDialog}
+          onImport={() => fileInput.current?.click()}
+          onRestore={(value) => {
+            void studio.acceptExternalState(value).catch(studio.report)
+            closeDialog()
+            notify('Snapshot restored as a new revision.')
+          }}
+        />
+      )}
+      {dialog?.type === 'inventory' && (
+        <InventoryModal
+          project={project}
+          onClose={closeDialog}
+          onPreview={(value) => {
+            setProposal(value)
+            setPanel('assistant')
+            setSelection(null)
+          }}
+        />
+      )}
       {dialog?.type === 'provider' && (
         <ProviderModal
           config={provider ?? defaultProvider}
           onClose={closeDialog}
           onSave={(value) => {
+            providerGeneration.current++
             setProvider(value)
             notify('Provider settings saved. The connection is used when you generate a proposal.')
           }}

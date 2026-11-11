@@ -307,6 +307,30 @@
           {
             "type": "object",
             "properties": {
+              "op": { "type": "string", "const": "update_view" },
+              "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" },
+              "patch": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "description": { "type": "string", "maxLength": 1000 },
+                  "kinds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["client", "gateway", "service", "database", "queue", "external"]
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": ["op", "id", "patch"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
               "op": { "type": "string", "const": "remove_view" },
               "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$" }
             },

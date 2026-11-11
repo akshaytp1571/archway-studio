@@ -133,6 +133,32 @@ test('provider keys are never returned to the browser and recipes need no provid
   })
   assert.equal(JSON.stringify(saved.body).includes('TEST-SECRET'), false)
   assert.equal(saved.body.hasApiKey, true)
+  const sameEndpoint = await json('/api/settings/provider', 'PUT', {
+    baseUrl: 'http://127.0.0.1:9999/v1/',
+    model: 'test-model',
+    enabled: false,
+  })
+  assert.equal(sameEndpoint.status, 200)
+  assert.equal(sameEndpoint.body.hasApiKey, true)
+  const changedEndpoint = await json('/api/settings/provider', 'PUT', {
+    baseUrl: 'http://127.0.0.1:9999/v2',
+    model: 'test-model',
+    enabled: false,
+  })
+  assert.equal(changedEndpoint.status, 400)
+  assert.equal(changedEndpoint.body.code, 'PROVIDER_KEY_CONFIRMATION_REQUIRED')
+  const stillSaved = await json('/api/settings/provider')
+  assert.equal(stillSaved.body.baseUrl, 'http://127.0.0.1:9999/v1/')
+  assert.equal(stillSaved.body.hasApiKey, true)
+  const confirmed = await json('/api/settings/provider', 'PUT', {
+    baseUrl: 'http://127.0.0.1:9999/v2',
+    model: 'test-model',
+    enabled: false,
+    reuseApiKey: true,
+  })
+  assert.equal(confirmed.status, 200)
+  assert.equal(confirmed.body.hasApiKey, true)
+  assert.equal(JSON.stringify(confirmed.body).includes('TEST-SECRET'), false)
   const project = await current(),
     recipe = await json('/api/assistant/plan', 'POST', {
       projectId: project.id,

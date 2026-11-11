@@ -1,4 +1,4 @@
-﻿# Archway — Architecture studio
+# Archway — Architecture studio
 
 **A visual, model-first software architecture builder for humans and agents.**
 
@@ -49,11 +49,13 @@ npm run start
 
 ## What is implemented?
 
-- **Visual editor:** six component kinds, labeled relationships, boundary visualization, multiple filtered views, pan/zoom, minimap, auto layout, search, and property/connection inspectors.
-- **Semantic model:** stable IDs, schema validation, reference validation, directed dependency/impact analysis, and independent view positions.
-- **Local projects:** commerce/SaaS/blank templates, atomic file writes, revision checks, undo/redo, and change history.
-- **Portable output:** lossless canonical JSON import/export, SVG image export, and Mermaid text export. SVG and Mermaid are view-only, not round-trip model formats.
-- **Assistant:** OpenAI-compatible planning, validated proposal previews, explicit apply, and three deterministic recipes that need no LLM.
+- **Visual editor:** six component kinds, labeled relationships, editable views and boundary membership, pan/zoom, minimap, auto layout, keyboard-accessible quick find, and property/connection inspectors.
+- **Semantic model:** stable IDs, schema/reference validation, directed dependency/impact analysis, partial view updates that preserve layout, and independent per-view positions.
+- **Local projects:** commerce/SaaS/blank templates, atomic file writes, revision checks, undo/redo, bounded history, and named read-only project snapshots with preview/restore.
+- **Portable output:** lossless canonical project JSON import/export, SVG image export, and Mermaid text export. Imports create independent projects; SVG and Mermaid are view-only, not round-trip model formats.
+- **Assistant:** OpenAI-compatible planning with cancellation, field-level proposal diffs, advisory warnings, explicit apply, and three deterministic recipes that need no LLM. Provider settings include an explicit saved-connection test.
+- **Local inventory:** a strict local JSON adapter previews stable-ID additions/updates; no code execution, cloud crawling, or automatic apply. See [inventory](docs/inventory.md).
+- **Recovery and measurement:** named snapshots with canonical backup download and atomic restore, plus synthetic maximum-size benchmarks. See [snapshots](docs/snapshots.md) and [performance](docs/performance.md).
 - **Agent interfaces:** REST transactions and six official-SDK MCP tools. External edits appear on the canvas through server-sent events; stale inspector drafts are protected.
 
 This is not an infrastructure deployment engine, automatic code/cloud discovery tool, cost estimator, strict C4 interchange implementation, or multi-user collaboration service. The [roadmap](docs/roadmap.md) separates future work from current behavior.
@@ -62,7 +64,7 @@ This is not an infrastructure deployment engine, automatic code/cloud discovery 
 
 Open **Assistant → Add a caching layer**, inspect the preview, then apply the batch. Built-in recipes are explicitly labeled and do not call an LLM.
 
-For free-form prompts, open **Provider settings** and configure an OpenAI-compatible base URL, model, and optional API key. Saving settings does not test the provider connection. The first proposal request does.
+For free-form prompts, open **Provider settings** and configure an OpenAI-compatible base URL, model, and optional API key. Saving settings does not test connectivity. Use **Test saved connection** for an explicit synthetic request, or generate a proposal. A connection test sends no architecture but may incur provider charges.
 
 **Privacy:** prompts and the current architecture are sent to the configured provider. Keys are kept server-side but stored in a local plain JSON settings document—not an encrypted secrets vault. See [configuration](docs/configuration.md) and [security](SECURITY.md).
 
@@ -96,6 +98,9 @@ The safe loop is **read → inspect impact → propose → preview → apply**. 
 ```sh
 npm run verify
 npm run test:browser
+npm run test:milestones
+npm run benchmark
+npm run test:performance
 ```
 
 The first command checks formatting, generated schemas, local documentation links, TypeScript, automated tests, and the client build. Browser tests additionally require a Chromium browser and built web assets. They use isolated temporary projects and a local mock model provider, never a real paid LLM.
@@ -108,14 +113,14 @@ npm run test:browser
 
 On Windows, browser tests also discover installed Chrome or Edge. An explicit `ARCHWAY_BROWSER_PATH` takes precedence. See [testing and troubleshooting](docs/development.md).
 
-A commit-pinned [GitHub Actions template](docs/ci/github-actions.yml) is included. It is not enabled automatically: the publishing account's OAuth token lacks the `workflow` scope. The [CI guide](docs/development.md#github-actions) explains how a maintainer can enable it deliberately.
+The owner-approved, commit-pinned [CI workflow](.github/workflows/ci.yml) is included locally alongside the [template](docs/ci/github-actions.yml). It uses read-only repository permissions. Hosted checks run on the configured GitHub push and pull-request triggers. Inspect Actions for current results; local verification is not evidence of a hosted pass. See [CI guide](docs/development.md#github-actions).
 
 ## Repository and license status
 
-The initial GitHub publication is **private**. Repository visibility does not change the application's deployment security.
+This repository is **public** under the MIT License. Repository visibility does not change the application's local-only deployment security.
 
 Archway source code and repository documentation are licensed under the [MIT License](LICENSE), copyright 2026 akshaytp1571 and Archway contributors. MIT permits use, modification, distribution, sublicensing, and commercial use, provided the copyright and permission notices are retained. The software is provided without warranty. Third-party dependencies retain their own licenses.
 
-Licensing and repository access are separate: the repository remains private until the owner chooses otherwise. This license does not grant access to private user architecture data or change its ownership.
+The public source license does not grant access to private user architecture data or change its ownership. Local project data, provider settings, credentials, dependencies, and generated artifacts are excluded from the repository.
 
 See [contributing](CONTRIBUTING.md), [security](SECURITY.md), and the [changelog](CHANGELOG.md).

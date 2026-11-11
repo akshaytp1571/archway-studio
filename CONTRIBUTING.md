@@ -1,4 +1,4 @@
-﻿# Contributing to Archway
+# Contributing to Archway
 
 Welcome. This is a local, single-user architecture studio with a model-first design—not a generic whiteboard or a deployment engine.
 
@@ -6,7 +6,7 @@ Start with [the README](README.md), [architecture](docs/architecture.md), and [d
 
 ## Before starting
 
-- Work from an authorized checkout. The repository is currently private, and its code/documentation are distributed under the [MIT License](LICENSE).
+- Work from a checkout or fork of the public repository. Its code/documentation are distributed under the [MIT License](LICENSE).
 - Inspect the current branch and working tree; preserve unrelated work.
 - For a substantial feature, agree on the problem, scope, model/API impact, and acceptance criteria with the maintainer first.
 - Read [security guidance](SECURITY.md) before working on authentication, provider settings, persistence, remote access, or agent permissions.
@@ -63,4 +63,4 @@ Never commit keys, provider settings, local project data, dependencies, compiled
 
 The project uses the [MIT License](LICENSE). Contributions must be material you own or have permission to submit under MIT, and are submitted under the same license. Preserve existing copyright and permission notices and document any third-party code or license obligations. There is currently no separate contributor license agreement or copyright-assignment requirement.
 
-Making the repository public and changing hosted-release safeguards remain separate owner decisions; the license does not authorize access to private user data.
+Public repository access does not change hosted-release safeguards or authorize access to private user data.

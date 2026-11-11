@@ -14,7 +14,10 @@
     "format:check": "prettier --check src shared server tests scripts docs .github vite.config.ts index.html package.json tsconfig.json .prettierrc.json README.md AGENTS.md CONTRIBUTING.md SECURITY.md CHANGELOG.md",
     "docs:generate": "tsx scripts/generate-docs.ts",
     "docs:check": "tsx scripts/generate-docs.ts --check && tsx scripts/check-docs.ts",
-    "verify": "npm run format:check && npm run docs:check && npm run check && npm test && npm run build"
+    "verify": "npm run format:check && npm run docs:check && npm run check && npm test && npm run build",
+    "test:milestones": "tsx tests/milestones-browser.ts",
+    "benchmark": "tsx scripts/benchmark.ts",
+    "test:performance": "tsx tests/performance-browser.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.3",

@@ -1,11 +1,11 @@
-﻿# Development, testing, and CI
+# Development, testing, and CI
 
 Read [architecture](architecture.md), [model contracts](model.md), and [contributing](../CONTRIBUTING.md) before changing the system. Coding agents must also read [AGENTS.md](../AGENTS.md).
 
 ## Requirements
 
 - Node.js 22.12+ and npm; Node.js 24 is the primary development version.
-- An authorized checkout. The initial GitHub repository is private.
+- A checkout or fork of the public GitHub repository.
 - A Chromium browser for the end-to-end suite. No real provider key is needed for tests.
 
 ```sh
@@ -120,38 +120,34 @@ Do not delete or overwrite a computed output/data path without confirming its re
 
 ## GitHub Actions
 
-The [CI template](ci/github-actions.yml) uses verified commit-pinned checkout/setup-node/upload-artifact actions, read-only contents permissions, cross-platform verification, and a Linux browser job.
+The owner-approved [active workflow](../.github/workflows/ci.yml) and [template](ci/github-actions.yml) use commit-pinned actions, read-only contents permissions, cross-platform verification, and a Linux Chromium job. Existing credentials already have workflow permission; no scope expansion or account switch was performed. Hosted execution requires committing/pushing changes. A local workflow file is not evidence of a hosted pass.
 
-It is stored outside the active workflows directory intentionally. The active publishing OAuth token lacks the `workflow` scope, and publishing code should not silently broaden credentials or switch accounts. **No hosted CI run is claimed simply because the template is present.**
+The browser job runs the existing smoke suite, `npm run test:milestones`, `npm run benchmark`, and `npm run test:performance`, and uploads synthetic artifacts. Do not publish user architectures or keys. Timing measurements are diagnostics, not flaky threshold gates.
 
-A maintainer can deliberately grant the required GitHub permission, then enable the template:
+## Additional milestone checks
 
 ```sh
-# Interactive authorization; run only when you intend to grant this scope.
-gh auth refresh --hostname github.com --scopes workflow
+npm run test:milestones
+npm run benchmark
+npm run test:performance
 ```
 
-PowerShell:
+All browser suites use `ARCHWAY_BROWSER_DIST` for an isolated build and `ARCHWAY_BROWSER_PATH` when explicitly provided. See [performance](performance.md), [snapshots](snapshots.md), and [inventory](inventory.md).
+
+### Windows temporary-file isolation
+
+If a build reports an OS temporary-file deletion denial, an isolated workspace temp directory can avoid disturbing global permissions. Confirm the absolute target before use; the following only changes variables for the current shell, not system permissions:
 
 ```powershell
-New-Item -ItemType Directory -Force .github/workflows
-Copy-Item docs/ci/github-actions.yml .github/workflows/ci.yml
-git add .github/workflows/ci.yml
-git commit -m 'ci: enable verified application checks'
-git push
+$temporary = Join-Path (Get-Location) 'artifacts/validation-temp'
+New-Item -ItemType Directory -Force $temporary
+$env:TMP = $temporary
+$env:TEMP = $temporary
+$env:TMPDIR = $temporary
+npm run verify
 ```
 
-POSIX shell:
-
-```sh
-mkdir -p .github/workflows
-cp docs/ci/github-actions.yml .github/workflows/ci.yml
-git add .github/workflows/ci.yml
-git commit -m 'ci: enable verified application checks'
-git push
-```
-
-Check Actions results after enabling. Do not assume the Linux/browser or hosted-runner matrix passed until it actually runs.
+Do not reuse a live data directory for tests. Restore prior shell variables when finished or use a fresh shell. This is isolation, not a Windows permissions repair.
 
 ## Troubleshooting
 

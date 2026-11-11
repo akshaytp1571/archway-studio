@@ -1,4 +1,4 @@
-﻿import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import {
@@ -18,6 +18,14 @@ import {
   type Project,
 } from '../shared/model'
 import { createProject, summarizeProject, type TemplateId } from '../shared/templates'
+import {
+  MAX_PROJECT_SNAPSHOTS,
+  SnapshotNameSchema,
+  parseSnapshotDocument,
+  summarizeSnapshot,
+  type SnapshotDocument,
+  type SnapshotSummary,
+} from '../shared/snapshots'
 
 type StoredProject = {
   project: Project
@@ -37,8 +45,10 @@ export class RevisionConflict extends ModelError {
 export class ProjectStore {
   private locks = new Map<string, Promise<unknown>>()
   readonly projectDirectory: string
+  readonly snapshotDirectory: string
   constructor(readonly dataDirectory: string) {
     this.projectDirectory = path.resolve(dataDirectory, 'projects')
+    this.snapshotDirectory = path.resolve(dataDirectory, 'snapshots')
   }
   async initialize(seed = true) {
     await mkdir(this.projectDirectory, { recursive: true })
@@ -163,6 +173,148 @@ export class ProjectStore {
         canUndo: stored.undo.length > 0,
         canRedo: false,
       }
+    })
+  }
+  private snapshotProjectDirectory(projectId: string) {
+    IdSchema.parse(projectId)
+    const directory = path.resolve(this.snapshotDirectory, projectId)
+    if (path.dirname(directory) !== this.snapshotDirectory)
+      throw new ModelError('INVALID_ID', 400, 'Invalid snapshot project path.')
+    return directory
+  }
+  private snapshotFile(projectId: string, snapshotId: string) {
+    IdSchema.parse(snapshotId)
+    const directory = this.snapshotProjectDirectory(projectId)
+    const filename = path.resolve(directory, `${snapshotId}.json`)
+    if (path.dirname(filename) !== directory)
+      throw new ModelError('INVALID_ID', 400, 'Invalid snapshot path.')
+    return filename
+  }
+  private async readSnapshot(projectId: string, snapshotId: string): Promise<SnapshotDocument> {
+    try {
+      let text: string
+      try {
+        text = await readFile(this.snapshotFile(projectId, snapshotId), 'utf8')
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT')
+          throw new ModelError('NOT_FOUND', 404, `Snapshot ${snapshotId} does not exist.`)
+        throw error
+      }
+      let value: unknown
+      try {
+        value = JSON.parse(text)
+      } catch {
+        throw new ModelError(
+          'SNAPSHOT_INVALID',
+          422,
+          'Snapshot file is not valid JSON; preserve it for recovery.',
+        )
+      }
+      return parseSnapshotDocument(value, projectId, snapshotId)
+    } catch (error) {
+      if (error instanceof ModelError) throw error
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT')
+        throw new ModelError('NOT_FOUND', 404, `Project ${projectId} does not exist.`)
+      throw error
+    }
+  }
+  private async writeSnapshot(snapshot: SnapshotDocument) {
+    const directory = this.snapshotProjectDirectory(snapshot.projectId)
+    await mkdir(directory, { recursive: true })
+    const destination = this.snapshotFile(snapshot.projectId, snapshot.id)
+    const temporary = `${destination}.${randomUUID()}.tmp`
+    await writeFile(temporary, JSON.stringify(snapshot, null, 2), { encoding: 'utf8', mode: 0o600 })
+    await rename(temporary, destination)
+  }
+  async listSnapshots(id: string): Promise<SnapshotSummary[]> {
+    await this.read(id)
+    const directory = this.snapshotProjectDirectory(id)
+    let files: string[]
+    try {
+      files = await readdir(directory)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
+      throw error
+    }
+    const records: SnapshotDocument[] = []
+    for (const file of files.filter((name) => name.endsWith('.json'))) {
+      const snapshotId = file.slice(0, -5)
+      if (!IdSchema.safeParse(snapshotId).success)
+        throw new ModelError(
+          'SNAPSHOT_INVALID',
+          422,
+          `Snapshot file name ${file} is not a valid snapshot ID.`,
+        )
+      records.push(await this.readSnapshot(id, snapshotId))
+    }
+    return records
+      .map(summarizeSnapshot)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id))
+  }
+  async createSnapshot(id: string, name: string, baseRevision: number): Promise<SnapshotSummary> {
+    let snapshotName: string
+    try {
+      snapshotName = SnapshotNameSchema.parse(name)
+    } catch {
+      throw new ModelError(
+        'SNAPSHOT_NAME_INVALID',
+        400,
+        'Snapshot name must contain 1–100 characters.',
+      )
+    }
+    if (!Number.isInteger(baseRevision) || baseRevision < 0)
+      throw new ModelError('SCHEMA_INVALID', 400, 'baseRevision must be a non-negative integer.')
+    return this.exclusive(id, async () => {
+      const stored = await this.read(id)
+      if (stored.project.revision !== baseRevision) throw new RevisionConflict(stored.project)
+      const current = await this.listSnapshots(id)
+      if (current.length >= MAX_PROJECT_SNAPSHOTS)
+        throw new ModelError(
+          'SNAPSHOT_LIMIT',
+          409,
+          `This project already has ${MAX_PROJECT_SNAPSHOTS} snapshots. Export a backup or start a separate project to keep additional snapshots; this release does not delete snapshots automatically.`,
+        )
+      const snapshot = parseSnapshotDocument(
+        {
+          snapshotVersion: 1,
+          id: `snp_${randomUUID()}`,
+          projectId: id,
+          name: snapshotName,
+          createdAt: new Date().toISOString(),
+          sourceRevision: stored.project.revision,
+          project: structuredClone(stored.project),
+        },
+        id,
+      )
+      await this.writeSnapshot(snapshot)
+      return summarizeSnapshot(snapshot)
+    })
+  }
+  async getSnapshot(id: string, snapshotId: string): Promise<SnapshotDocument> {
+    await this.read(id)
+    return this.readSnapshot(id, snapshotId)
+  }
+  async previewSnapshot(id: string, snapshotId: string, baseRevision: number) {
+    const { project: current } = await this.get(id)
+    if (current.revision !== baseRevision) throw new RevisionConflict(current)
+    const snapshot = await this.getSnapshot(id, snapshotId)
+    const content = contentOf(snapshot.project)
+    const proposed = applyOperations(current, [{ op: 'replace_content', content }])
+    return {
+      project: proposed,
+      validation: validateArchitecture(proposed),
+      operations: ['Replace architecture content from snapshot'],
+      baseRevision: current.revision,
+      snapshot: summarizeSnapshot(snapshot),
+    }
+  }
+  async restoreSnapshot(id: string, snapshotId: string, baseRevision: number) {
+    const snapshot = await this.getSnapshot(id, snapshotId)
+    return this.apply(id, {
+      baseRevision,
+      source: 'human',
+      message: `Restored snapshot: ${snapshot.name}`.slice(0, 240),
+      operations: [{ op: 'replace_content', content: contentOf(snapshot.project) }],
     })
   }
   async travel(id: string, baseRevision: number, action: 'undo' | 'redo') {

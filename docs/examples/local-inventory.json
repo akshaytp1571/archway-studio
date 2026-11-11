@@ -1,0 +1,14 @@
+﻿{
+  "inventoryVersion": 1,
+  "components": [
+    {
+      "id": "inventory-service",
+      "kind": "service",
+      "name": "Synthetic inventory service",
+      "technology": "TypeScript",
+      "owner": "Sample only"
+    }
+  ],
+  "relationships": [],
+  "boundaries": []
+}

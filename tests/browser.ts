@@ -83,11 +83,116 @@ const closePanel = async () => {
   if (await page.getByRole('button', { name: 'Close side panel', exact: true }).count())
     await page.getByRole('button', { name: 'Close side panel', exact: true }).click()
 }
+let releaseInitialProviderRead!: () => void,
+  initialProviderReadReady!: () => void,
+  initialProviderReadDelivered!: () => void
+const initialProviderReadGate = new Promise<void>(
+    (resolve) => (releaseInitialProviderRead = resolve),
+  ),
+  initialProviderReadStarted = new Promise<void>((resolve) => (initialProviderReadReady = resolve)),
+  initialProviderReadDone = new Promise<void>((resolve) => (initialProviderReadDelivered = resolve))
+let delayedInitialProviderReads = 0
+await page.route('**/api/settings/provider', async (route) => {
+  if (route.request().method() !== 'GET') return route.continue()
+  const oldResponse = await route.fetch()
+  if (!delayedInitialProviderReads++) initialProviderReadReady()
+  await initialProviderReadGate
+  await route.fulfill({ response: oldResponse })
+  initialProviderReadDelivered()
+})
 try {
   console.log(`Browser test URL: ${base}`)
   await page.goto(base)
   await expectNodes(8)
   await waitRevision(0)
+  await initialProviderReadStarted
+  const raceSettingsButton = page
+    .locator('.assistant-panel')
+    .getByRole('button', { name: 'Configure model provider', exact: true })
+  await raceSettingsButton.click()
+  const raceSettings = page.getByRole('dialog', { name: 'Connect your architecture assistant' })
+  await raceSettings
+    .getByLabel('API base URL', { exact: true })
+    .fill('https://race-test.example/v1')
+  await raceSettings.getByLabel('Model', { exact: true }).fill('race-test-model')
+  await raceSettings.getByLabel(/^API key/).fill('race-test-secret')
+  await raceSettings.getByRole('button', { name: 'Save provider', exact: true }).click()
+  await raceSettings.waitFor({ state: 'hidden' })
+  const initialResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/settings/provider') && response.request().method() === 'GET',
+  )
+  releaseInitialProviderRead()
+  await initialProviderReadDone
+  await (await initialResponse).finished()
+  await settleViewport()
+  await page.getByText('race-test-model', { exact: true }).waitFor()
+  await raceSettingsButton.click()
+  const savedRaceSettings = page.getByRole('dialog', {
+    name: 'Connect your architecture assistant',
+  })
+  assert.equal(
+    await savedRaceSettings.getByLabel('Model', { exact: true }).inputValue(),
+    'race-test-model',
+  )
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click()
+  await page.unroute('**/api/settings/provider')
+  step('a delayed initial provider read cannot overwrite a successful settings save')
+
+  await raceSettingsButton.click()
+  const keySettings = page.getByRole('dialog', { name: 'Connect your architecture assistant' })
+  const endpointInput = keySettings.getByLabel('API base URL', { exact: true })
+  await endpointInput.fill('https://unconsented.example/v1')
+  const reuseConsent = keySettings.getByRole('checkbox', { name: /explicitly consent/ })
+  assert.equal(await reuseConsent.isChecked(), false)
+  await keySettings.getByRole('button', { name: 'Save provider', exact: true }).click()
+  await keySettings
+    .getByRole('alert')
+    .getByText(/Confirm reusing/)
+    .waitFor()
+  assert.equal(
+    (await (await page.request.get(`${base}/api/settings/provider`)).json()).baseUrl,
+    'https://race-test.example/v1',
+  )
+  await reuseConsent.check()
+  await endpointInput.fill('https://consented.example/v1')
+  assert.equal(await reuseConsent.isChecked(), false)
+  await reuseConsent.check()
+  await keySettings.getByRole('button', { name: 'Save provider', exact: true }).click()
+  await keySettings.waitFor({ state: 'hidden' })
+  const consentedSettings = await (await page.request.get(`${base}/api/settings/provider`)).json()
+  assert.equal(consentedSettings.baseUrl, 'https://consented.example/v1')
+  assert.equal(consentedSettings.hasApiKey, true)
+  await raceSettingsButton.click()
+  const replacementSettings = page.getByRole('dialog', {
+    name: 'Connect your architecture assistant',
+  })
+  await replacementSettings
+    .getByLabel('API base URL', { exact: true })
+    .fill('https://replacement.example/v1')
+  await replacementSettings.getByLabel(/^API key/).fill('replacement-secret')
+  assert.equal(
+    await replacementSettings.getByRole('checkbox', { name: /explicitly consent/ }).count(),
+    0,
+  )
+  await replacementSettings.getByRole('button', { name: 'Save provider', exact: true }).click()
+  await replacementSettings.waitFor({ state: 'hidden' })
+  assert.equal(
+    (await (await page.request.get(`${base}/api/settings/provider`)).json()).baseUrl,
+    'https://replacement.example/v1',
+  )
+  await raceSettingsButton.click()
+  const clearSettings = page.getByRole('dialog', { name: 'Connect your architecture assistant' })
+  await clearSettings.getByRole('checkbox', { name: 'Clear the saved key', exact: true }).check()
+  await clearSettings.getByRole('button', { name: 'Save provider', exact: true }).click()
+  await clearSettings.waitFor({ state: 'hidden' })
+  assert.equal(
+    (await (await page.request.get(`${base}/api/settings/provider`)).json()).hasApiKey,
+    false,
+  )
+  step(
+    'changed endpoints require explicit credential reuse consent; keys can be explicitly cleared',
+  )
   await settleViewport()
   await page.screenshot({
     path: path.join(artifacts, 'archway-desktop.png'),
@@ -216,9 +321,9 @@ try {
     .click()
   const settings = page.getByRole('dialog', { name: 'Connect your architecture assistant' })
   await settings.waitFor()
-  await settings
-    .getByLabel('API base URL', { exact: true })
-    .fill(`http://127.0.0.1:${(mockProvider.address() as { port: number }).port}/v1`)
+  const mockEndpoint = `http://127.0.0.1:${(mockProvider.address() as { port: number }).port}/v1`
+  await settings.getByLabel('API base URL', { exact: true }).fill(mockEndpoint)
+  assert.equal(await settings.getByRole('checkbox', { name: /explicitly consent/ }).count(), 0)
   await settings.getByLabel('Model', { exact: true }).fill('browser-test-model')
   await settings.getByLabel(/^API key/).fill('browser-test-secret')
   await settings.getByRole('button', { name: 'Save provider', exact: true }).click()
@@ -286,7 +391,7 @@ try {
   const search = page.getByRole('dialog', { name: 'Find your way around' })
   await search.waitFor()
   await search.getByLabel('Search components', { exact: true }).fill('Smoke')
-  await search.getByRole('button', { name: /Smoke service/ }).click()
+  await search.getByRole('option', { name: /Smoke service/ }).click()
   await page.getByRole('button', { name: 'Remove component', exact: true }).click()
   const remove = page.getByRole('dialog', { name: 'Remove Smoke service?' })
   await remove.waitFor()

@@ -1,4 +1,4 @@
-﻿# REST and MCP API reference
+# REST and MCP API reference
 
 Default base URL: `http://127.0.0.1:4317`. Requests are local-only and unauthenticated; see [security](../SECURITY.md). Send JSON bodies with `Content-Type: application/json`. IDs should be URL-encoded in path segments.
 
@@ -37,11 +37,11 @@ The abbreviated `project` above stands for a complete canonical project. History
 | `GET /api/projects/:id/events`              | Server-sent events for saved revisions                                                                                                           |
 | `GET /api/projects/:id/export`              | Query `format=json                                                                                                                               | svg                                                  | mermaid`, optional `viewId`; downloadable JSON/SVG/MMD |
 | `GET /api/settings/provider`                | `{baseUrl, model, configured, hasApiKey, source}`; never returns the key                                                                         |
-| `PUT /api/settings/provider`                | `{baseUrl, model, apiKey?, enabled?}`; enabled defaults true; omission preserves a key, empty string clears it                                   |
+| `PUT /api/settings/provider`                | `{baseUrl, model, apiKey?, enabled?, reuseApiKey?}`; enabled defaults true; key reuse rules below                                                |
 | `POST /api/assistant/plan`                  | `{projectId, baseRevision, prompt? OR recipeId?}`; exactly one prompt/recipe                                                                     |
 | `POST /mcp`                                 | Stateless Streamable HTTP MCP transport                                                                                                          |
 
-There is no project deletion endpoint, authentication endpoint, deployment endpoint, GraphQL API, or `update_view` operation in this version. Do not infer routes from UI labels or other diagram tools.
+There is no project deletion endpoint, authentication endpoint, deployment endpoint, or GraphQL API. `update_view` is an operation on the existing transaction/MCP change paths, not a separate endpoint. Do not infer routes from UI labels or other diagram tools.
 
 Import creates a fresh project ID, revision zero, and new timestamps while preserving internal component/relationship/boundary/view IDs. An API import retains the imported name unless `name` is supplied; the GUI chooses an `(imported)` name explicitly.
 
@@ -89,6 +89,27 @@ A successful plan returns `summary`, raw `operations`, `mode` (`recipe` or `prov
 
 Settings do not prove connectivity. Planning checks the revision before and after inference/recipe creation. A provider response can be JSON-valid but fail schema/reference validation; no changes are applied in that case.
 
+Provider settings saves use `apiKey` whenever it is present, including an empty string to clear the key. If omitted, a saved key is preserved automatically only when the prior source is saved settings and the normalized base URL is unchanged. Environment-sourced keys and keys associated with changed endpoints require explicit `reuseApiKey: true` consent; otherwise the save fails before writing. The consent flag is not persisted, and responses never include a secret. Fresh keyless settings are valid.
+
+## Local reliability, recovery, and inventory endpoints
+
+| Method/path                                            | Contract                                                                                                                              |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/settings/provider/test`                     | Empty object; tests saved provider via synthetic chat exchange; `{ok,model,latencyMs,checkedAt}`; no architecture/credential response |
+| `GET /api/projects/:id/snapshots`                      | Lists named snapshot summaries                                                                                                        |
+| `POST /api/projects/:id/snapshots`                     | `{name,baseRevision}` → 201 `{snapshot}`; capture changes no project revision/history                                                 |
+| `GET /api/projects/:id/snapshots/:snapshotId`          | Validated snapshot record                                                                                                             |
+| `GET /api/projects/:id/snapshots/:snapshotId/export`   | Downloadable canonical Project JSON, independent-import compatible                                                                    |
+| `POST /api/projects/:id/snapshots/:snapshotId/preview` | `{baseRevision}`; read-only whole-content restore preview                                                                             |
+| `POST /api/projects/:id/snapshots/:snapshotId/restore` | `{baseRevision}`; atomic content restore, new monotonic revision/undo/history/live event                                              |
+| `POST /api/projects/:id/inventory/preview`             | `{baseRevision,inventory}` → `{summary,operations,report,mode:"inventory",proposedProject,validation,baseRevision}`; no writes        |
+
+Provider planning and saved-connection testing support cancellation on client disconnect. Timeout covers response-body reading and remains bounded at 60 seconds; cancellation maps to `PROVIDER_CANCELLED` (499), not timeout. The connection test makes a real tiny inference request and may incur charges, but sends no architecture. It reports success only after the required JSON response succeeds.
+
+Snapshot format version 1 validates canonical version 1 and references, rejects unsupported/corrupt data, and caps captures at 20 without automatic deletion. Restore preserves the current project identity, applies via the same engine, and rejects stale edits. See [snapshot contracts](snapshots.md).
+
+Inventory previews only add/update stable-ID semantics, preserve omitted properties and unrelated entities, and cap operations at 100. Apply the exact reviewed batch through the existing change route; no separate automatic apply or executable discovery exists. See [inventory mapping](inventory.md). Proposal warnings remain advisory.
+
 ## Error contracts
 
 REST errors generally have `{code, message, issues?}`. A revision conflict also includes `currentRevision`, not the complete current project.
@@ -96,6 +117,7 @@ REST errors generally have `{code, message, issues?}`. A revision conflict also 
 | HTTP | Representative code                                                                  | Recovery                                                                              |
 | ---- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
 | 400  | `SCHEMA_INVALID`, `INVALID_JSON`                                                     | Fix the request shape/JSON; do not retry unchanged                                    |
+| 400  | `PROVIDER_KEY_CONFIRMATION_REQUIRED`                                                 | Provide `apiKey` or `reuseApiKey: true`; no settings are written                      |
 | 400  | `PROVIDER_NOT_CONFIGURED`                                                            | Configure a provider or use an explicit recipe                                        |
 | 400  | `NOTHING_TO_UNDO`                                                                    | No applicable undo/redo snapshot exists                                               |
 | 403  | `HOST_DENIED`, `ORIGIN_DENIED`                                                       | Use the documented loopback/same-origin setup; do not bypass checks                   |

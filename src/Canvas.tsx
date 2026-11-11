@@ -1,4 +1,4 @@
-﻿import { forwardRef, memo, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { forwardRef, memo, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -201,6 +201,8 @@ const CanvasInner = forwardRef<CanvasHandle, Props>(function CanvasInner(props, 
         selected: selection?.type === 'component' && selection.id === component.id,
         width: NODE_WIDTH,
         height: NODE_HEIGHT,
+        ariaLabel: `${component.name}, ${KINDS[component.kind].label}, stable ID ${component.id}. Press Enter to inspect.`,
+        focusable: true,
         draggable: !disabled && !preview,
         connectable: !disabled && !preview,
         zIndex: 1,
@@ -323,6 +325,17 @@ const CanvasInner = forwardRef<CanvasHandle, Props>(function CanvasInner(props, 
         </div>
       )}
       <ReactFlow<DiagramNode>
+        onKeyDownCapture={(event) => {
+          if ((event.key === 'Enter' || event.key === ' ') && !preview) {
+            const target = (event.target as HTMLElement).closest('.react-flow__node-architecture')
+            const id = target?.getAttribute('data-id')
+            if (id) {
+              event.preventDefault()
+              event.stopPropagation()
+              onSelect({ type: 'component', id })
+            }
+          }
+        }}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}

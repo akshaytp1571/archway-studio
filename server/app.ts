@@ -1,4 +1,4 @@
-﻿import express, { type NextFunction, type Request, type Response } from 'express'
+import express, { type NextFunction, type Request, type Response } from 'express'
 import { z } from 'zod'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import {
@@ -12,7 +12,10 @@ import { exportMermaid, exportSvg } from '../shared/export'
 import { recipePlan } from '../shared/templates'
 import { LiveProjectStore } from './live-store'
 import { RevisionConflict } from './store'
-import { ProviderSettings, ProviderSettingsSchema, planWithProvider } from './provider'
+import { ProviderSettings, planWithProvider } from './provider'
+import { createRequestAbort, mountProviderRoutes } from './provider-routes'
+import { mountSnapshotRoutes } from './snapshot-routes'
+import { mountInventoryRoutes } from './inventory-routes'
 import { createMcpServer } from './mcp'
 
 const idOf = (req: Request) => IdSchema.parse(req.params.id)
@@ -142,10 +145,9 @@ export async function createApplication(dataDirectory: string, seed = true) {
     else if (format === 'svg') res.type('image/svg+xml').send(exportSvg(project, viewId))
     else res.type('text/plain').send(exportMermaid(project, viewId))
   })
-  app.get('/api/settings/provider', async (_req, res) => res.json(await providers.publicSettings()))
-  app.put('/api/settings/provider', async (req, res) =>
-    res.json(await providers.save(ProviderSettingsSchema.parse(req.body))),
-  )
+  mountProviderRoutes(app, providers)
+  mountSnapshotRoutes(app, store)
+  mountInventoryRoutes(app, store)
   app.post('/api/assistant/plan', async (req, res) => {
     const input = z
       .object({
@@ -162,26 +164,34 @@ export async function createApplication(dataDirectory: string, seed = true) {
       .parse(req.body)
     const { project } = await store.get(input.projectId)
     if (project.revision !== input.baseRevision) throw new RevisionConflict(project)
-    let plan
-    if (input.recipeId) {
-      try {
-        plan = recipePlan(project, input.recipeId)
-      } catch (error) {
-        throw new ModelError('RECIPE_UNAVAILABLE', 422, (error as Error).message)
-      }
-    } else plan = await planWithProvider(await providers.get(), project, input.prompt!)
-    const preview = await store.preview(input.projectId, {
-      baseRevision: input.baseRevision,
-      operations: plan.operations,
-      source: 'agent',
-      message: plan.summary.slice(0, 240),
-    })
-    res.json({
-      ...plan,
-      proposedProject: preview.project,
-      validation: preview.validation,
-      baseRevision: input.baseRevision,
-    })
+    const request = createRequestAbort(req, res)
+    try {
+      let plan
+      if (input.recipeId) {
+        try {
+          plan = recipePlan(project, input.recipeId)
+        } catch (error) {
+          throw new ModelError('RECIPE_UNAVAILABLE', 422, (error as Error).message)
+        }
+      } else
+        plan = await planWithProvider(await providers.get(), project, input.prompt!, {
+          signal: request.signal,
+        })
+      const preview = await store.preview(input.projectId, {
+        baseRevision: input.baseRevision,
+        operations: plan.operations,
+        source: 'agent',
+        message: plan.summary.slice(0, 240),
+      })
+      res.json({
+        ...plan,
+        proposedProject: preview.project,
+        validation: preview.validation,
+        baseRevision: input.baseRevision,
+      })
+    } finally {
+      request.dispose()
+    }
   })
   app.post('/mcp', async (req, res, next) => {
     const server = createMcpServer(store),
